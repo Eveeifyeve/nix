@@ -57,7 +57,33 @@ int Pid::kill()
 {
     assert(pid.get() != INVALID_DESCRIPTOR);
 
+    std::cerr << (format("killing process %1%") % dwProcessId) << std::endl;
     debug("killing process %1%", pid.get());
+
+    switch (WaitForSingleObject(hProcess, 1000)) {
+    case WAIT_TIMEOUT:
+        std::cerr << (format("Pid::kill(): WaitForSingleObject(%1% [%2%]) -> TIMEOUT") % hProcess % dwProcessId) << std::endl;
+        if (!TerminateProcess(hProcess, 177)) {
+            std::cerr << ((ExecError("Pid::kill(): TerminateProcess(%1% [%2%])", hProcess, dwProcessId).msg())) << std::endl;
+        }
+        return wait();
+
+    case WAIT_OBJECT_0: {
+        std::cerr << (format("Pid::kill(): WaitForSingleObject(%1% [%2%]) -> WAIT_OBJECT_0") % hProcess % dwProcessId) << std::endl;
+        DWORD dwExitCode = 176;
+        if (!GetExitCodeProcess(hProcess, &dwExitCode)) {
+            std::cerr << ((ExecError("Pid::kill(): GetExitCodeProcess(%1% [%2%])", hProcess, dwProcessId).msg())) << std::endl;
+        }
+        std::cerr << (format("Pid::kill(): GetExitCodeProcess(%1% [%2%]) -> %3%") % hProcess % dwProcessId % dwExitCode) << std::endl;
+        CloseHandle(hProcess);
+        hProcess = INVALID_HANDLE_VALUE;
+        dwProcessId = DWORD(-1);
+        return dwExitCode;
+    }
+
+    }
+
+
 
     throw UnimplementedError("Pid::kill unimplemented");
 }

@@ -1,7 +1,7 @@
 project('nix-util', 'cpp',
   version : files('.version'),
   default_options : [
-    'cpp_std=c++2a',
+    'cpp_std=c++20',
     # TODO(Qyriad): increase the warning level
     'warning_level=1',
     'errorlogs=true', # Please print logs for tests that fail
@@ -11,8 +11,14 @@ project('nix-util', 'cpp',
 )
 
 cxx = meson.get_compiler('cpp')
+if host_machine.system() == 'windows'
+  buildsupport = 'nix-meson-build-support-win'  # Required because Windows can't use Unix symlinks natively.
+else
+  buildsupport = 'nix-meson-build-support'
+endif
 
-subdir('nix-meson-build-support/deps-lists')
+
+subdir(buildsupport + '/deps-lists')
 
 configdata = configuration_data()
 
@@ -20,7 +26,7 @@ deps_private_maybe_subproject = [
 ]
 deps_public_maybe_subproject = [
 ]
-subdir('nix-meson-build-support/subprojects')
+subdir(buildsupport + '/subprojects')
 
 # Check for each of these functions, and create a define like `#define
 # HAVE_POSIX_FALLOCATE 1`. The `#define` is unconditional, 0 for not
@@ -37,7 +43,7 @@ foreach funcspec : check_funcs
   configdata.set(define_name, define_value, description: funcspec[1])
 endforeach
 
-subdir('nix-meson-build-support/libatomic')
+subdir(buildsupport + '/libatomic')
 
 if host_machine.system() == 'windows'
   socket = cxx.find_library('ws2_32')
@@ -47,6 +53,7 @@ elif host_machine.system() == 'sunos'
   network_service_library = cxx.find_library('nsl')
   deps_other += [socket, network_service_library]
 endif
+
 
 blake3 = dependency(
   'libblake3',
@@ -59,7 +66,7 @@ boost = dependency(
   'boost',
   modules : ['context', 'coroutine', 'iostreams'],
   include_type: 'system',
-  version: '>=1.82.0'
+  version: '>=1.82.0',
 )
 # boost is a public dependency, but not a pkg-config dependency unfortunately, so we
 # put in `deps_other`.
@@ -107,7 +114,7 @@ config_priv_h = configure_file(
   output : 'util-config-private.hh',
 )
 
-subdir('nix-meson-build-support/common')
+subdir(buildsupport + '/common')
 
 sources = [config_priv_h] + files(
   'archive.cc',
@@ -180,8 +187,8 @@ else
   subdir('unix')
 endif
 
-subdir('nix-meson-build-support/export-all-symbols')
-subdir('nix-meson-build-support/windows-version')
+subdir(buildsupport + '/export-all-symbols')
+subdir(buildsupport + '/windows-version')
 
 this_library = library(
   'nixutil',
@@ -203,4 +210,4 @@ if host_machine.system() == 'windows'
   libraries_private += ['-lws2_32']
 endif
 
-subdir('nix-meson-build-support/export')
+subdir(buildsupport + '/export')
